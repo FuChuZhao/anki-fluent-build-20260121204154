@@ -1,0 +1,63 @@
+name: build-windows
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: "Git ref/commit in private SOURCE_REPO"
+        required: true
+        default: "main"
+      artifact_name:
+        description: "Artifact name"
+        required: true
+        default: "windows"
+      app_version:
+        description: "APP_VERSION passed to flutter --dart-define"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Setup SSH for private clone
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
+
+      - name: Clone private source repo
+        shell: bash
+        env:
+          SOURCE_REPO: ${{ secrets.SOURCE_REPO_SSH_URL }}
+          SOURCE_REF: ${{ inputs.source_ref }}
+        run: |
+          set -euo pipefail
+          git clone "$SOURCE_REPO" source
+          cd source
+          git checkout "$SOURCE_REF"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build (source script)
+        shell: pwsh
+        env:
+          APP_VERSION: ${{ inputs.app_version }}
+        run: |
+          ./source/tool/ci/build_windows.ps1 -OutDir out
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: out/*.zip
+          retention-days: 1
+
