@@ -1,0 +1,62 @@
+name: test-windows-screenshots
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: "Git ref/commit in private SOURCE_REPO"
+        required: true
+        default: "main"
+      artifact_name:
+        description: "Artifact name"
+        required: true
+        default: "screenshots"
+
+permissions:
+  contents: read
+
+jobs:
+  screenshots:
+    runs-on: windows-latest
+    steps:
+      - name: Setup SSH for private clone
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
+
+      - name: Trust github.com host key
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+      - name: Clone private source repo
+        shell: bash
+        env:
+          SOURCE_REPO: ${{ secrets.SOURCE_REPO_SSH_URL }}
+          SOURCE_REF: ${{ inputs.source_ref }}
+        run: |
+          set -euo pipefail
+          git clone "$SOURCE_REPO" source
+          cd source
+          git checkout "$SOURCE_REF"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Run screenshot CI (source script)
+        shell: pwsh
+        run: |
+          ./source/tool/ci/run_ci_screenshots.ps1 -RepoRoot (Resolve-Path ./source) -OutDir out
+
+      - name: Upload screenshots + logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: source/out/**
+          retention-days: 1
+
