@@ -1,0 +1,75 @@
+name: build-android
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: "Git ref/commit in private SOURCE_REPO"
+        required: true
+        default: "main"
+      artifact_name:
+        description: "Artifact name"
+        required: true
+        default: "android"
+      app_version:
+        description: "APP_VERSION passed to flutter --dart-define"
+        required: false
+        default: ""
+      mode:
+        description: "debug|release (release requires signing setup)"
+        required: false
+        default: "debug"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SSH for private clone
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
+
+      - name: Clone private source repo
+        shell: bash
+        env:
+          SOURCE_REPO: ${{ secrets.SOURCE_REPO_SSH_URL }}
+          SOURCE_REF: ${{ inputs.source_ref }}
+        run: |
+          set -euo pipefail
+          git clone "$SOURCE_REPO" source
+          cd source
+          git checkout "$SOURCE_REF"
+
+      - name: Setup Java (Android)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Build Android APK (source script)
+        shell: bash
+        env:
+          APP_VERSION: ${{ inputs.app_version }}
+        run: |
+          set -euo pipefail
+          bash ./source/tool/ci/build_android.sh --out-dir out --mode "${{ inputs.mode }}"
+
+      - name: Upload artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: source/out/*
+          retention-days: 1
+
