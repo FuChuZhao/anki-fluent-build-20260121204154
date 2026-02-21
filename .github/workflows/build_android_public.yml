@@ -87,6 +87,8 @@ jobs:
       - name: Setup Rust
         if: ${{ inputs.with_backend == '1' }}
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
 
       - name: Install cargo-ndk
         if: ${{ inputs.with_backend == '1' }}
