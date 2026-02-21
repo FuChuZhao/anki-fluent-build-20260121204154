@@ -75,7 +75,7 @@ jobs:
           NDK_VERSION: ${{ inputs.ndk_version }}
         run: |
           set -euo pipefail
-          yes | sdkmanager --licenses >/dev/null
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
           sdkmanager "ndk;$NDK_VERSION"
           echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
 
