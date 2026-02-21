@@ -19,6 +19,14 @@ on:
         description: "debug|release (release requires signing setup)"
         required: false
         default: "debug"
+      with_backend:
+        description: "0|1 - bundle Rust FFI backend (libanki_ffi.so) via cargo-ndk"
+        required: false
+        default: "0"
+      ndk_version:
+        description: "Android NDK version (sdkmanager 'ndk;VERSION')"
+        required: false
+        default: "26.1.10909125"
 
 permissions:
   contents: read
@@ -52,10 +60,39 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Install build dependencies
+        if: ${{ inputs.with_backend == '1' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config protobuf-compiler
+
+      - name: Install Android NDK
+        if: ${{ inputs.with_backend == '1' }}
+        shell: bash
+        env:
+          NDK_VERSION: ${{ inputs.ndk_version }}
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager "ndk;$NDK_VERSION"
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+
+      - name: Setup Rust
+        if: ${{ inputs.with_backend == '1' }}
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-ndk
+        if: ${{ inputs.with_backend == '1' }}
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-ndk
 
       - name: Build Android APK (source script)
         shell: bash
@@ -63,7 +100,11 @@ jobs:
           APP_VERSION: ${{ inputs.app_version }}
         run: |
           set -euo pipefail
-          bash ./source/tool/ci/build_android.sh --out-dir out --mode "${{ inputs.mode }}"
+          args=(--out-dir out --mode "${{ inputs.mode }}")
+          if [[ "${{ inputs.with_backend }}" == "1" || "${{ inputs.with_backend }}" == "true" ]]; then
+            args+=(--with-backend)
+          fi
+          bash ./source/tool/ci/build_android.sh "${args[@]}"
 
       - name: Upload artifact
         if: always()
@@ -72,4 +113,3 @@ jobs:
           name: ${{ inputs.artifact_name }}
           path: source/out/*
           retention-days: 1
-
