@@ -64,7 +64,7 @@ jobs:
           APP_VERSION: ${{ inputs.app_version }}
         run: |
           set -euo pipefail
-          bash ./source/tool/ci/build_linux.sh --out-dir ./source/out
+          bash ./source/tool/ci/build_linux.sh --out-dir out
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
