@@ -16,7 +16,7 @@ on:
         required: false
         default: ""
       mode:
-        description: "debug|release (release requires signing setup)"
+        description: "debug|release (release can use signing secrets; otherwise debug signing)"
         required: false
         default: "debug"
       format:
@@ -99,6 +99,25 @@ jobs:
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-ndk
+
+      - name: Setup Android signing (optional)
+        if: ${{ inputs.mode == 'release' && secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_STORE_PASSWORD }}
+          ANDROID_KEYSTORE_KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_KEY_PASSWORD }}
+          ANDROID_KEYSTORE_KEY_ALIAS: ${{ secrets.ANDROID_KEYSTORE_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          cd source/anki_fluent_desktop/android
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > upload-keystore.jks
+          cat > key.properties <<EOF
+          storeFile=upload-keystore.jks
+          storePassword=$ANDROID_KEYSTORE_STORE_PASSWORD
+          keyPassword=$ANDROID_KEYSTORE_KEY_PASSWORD
+          keyAlias=$ANDROID_KEYSTORE_KEY_ALIAS
+          EOF
 
       - name: Build Android APK (source script)
         shell: bash
