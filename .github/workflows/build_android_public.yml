@@ -101,7 +101,7 @@ jobs:
           tool: cargo-ndk
 
       - name: Setup Android signing (optional)
-        if: ${{ inputs.mode == 'release' && secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        if: ${{ inputs.mode == 'release' }}
         shell: bash
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -110,6 +110,10 @@ jobs:
           ANDROID_KEYSTORE_KEY_ALIAS: ${{ secrets.ANDROID_KEYSTORE_KEY_ALIAS }}
         run: |
           set -euo pipefail
+          if [[ -z "${ANDROID_KEYSTORE_BASE64// }" ]]; then
+            echo "ANDROID_KEYSTORE_BASE64 not set; using debug signing."
+            exit 0
+          fi
           cd source/anki_fluent_desktop/android
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > upload-keystore.jks
           cat > key.properties <<EOF
