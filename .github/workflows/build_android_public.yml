@@ -19,6 +19,10 @@ on:
         description: "debug|release (release requires signing setup)"
         required: false
         default: "debug"
+      format:
+        description: "apk|aab|both"
+        required: false
+        default: "apk"
       with_backend:
         description: "0|1 - bundle Rust FFI backend (libanki_ffi.so) via cargo-ndk"
         required: false
@@ -102,7 +106,7 @@ jobs:
           APP_VERSION: ${{ inputs.app_version }}
         run: |
           set -euo pipefail
-          args=(--out-dir out --mode "${{ inputs.mode }}")
+          args=(--out-dir out --mode "${{ inputs.mode }}" --format "${{ inputs.format }}")
           if [[ "${{ inputs.with_backend }}" == "1" || "${{ inputs.with_backend }}" == "true" ]]; then
             args+=(--with-backend)
           fi
